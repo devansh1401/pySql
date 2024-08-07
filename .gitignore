@@ -1,0 +1,17 @@
+# Virtual environment
+venv/
+env/
+my-venv/
+
+# Chroma vector store
+faiss_index/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Other
+.DS_Store
+*.log
+.env
