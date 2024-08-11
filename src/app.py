@@ -1,3 +1,4 @@
+# to run go inside src and write -> streamlit run app.py
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
@@ -37,8 +38,8 @@ def get_sql_chain(db):
     
   prompt = ChatPromptTemplate.from_template(template)
   
-  # llm = ChatOpenAI(model="gpt-4-0125-preview")
-  llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
+  llm = ChatOpenAI(model="gpt-4-0125-preview")
+  #llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
   
   def get_schema(_):
     return db.get_table_info()
@@ -65,8 +66,8 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
   
   prompt = ChatPromptTemplate.from_template(template)
   
-  # llm = ChatOpenAI(model="gpt-4-0125-preview")
-  llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
+  llm = ChatOpenAI(model="gpt-4-0125-preview")
+  #llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
   
   chain = (
     RunnablePassthrough.assign(query=sql_chain).assign(
@@ -83,7 +84,6 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
     "chat_history": chat_history,
   })
     
-  
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
       AIMessage(content="Hello! I'm a SQL assistant. Ask me anything about your database."),
@@ -91,6 +91,7 @@ if "chat_history" not in st.session_state:
 
 load_dotenv()
 
+# heading 
 st.set_page_config(page_title="Chat with MySQL", page_icon=":speech_balloon:")
 
 st.title("Chat with MySQL")
@@ -102,8 +103,8 @@ with st.sidebar:
     st.text_input("Host", value="localhost", key="Host")
     st.text_input("Port", value="3306", key="Port")
     st.text_input("User", value="root", key="User")
-    st.text_input("Password", type="password", value="admin", key="Password")
-    st.text_input("Database", value="Chinook", key="Database")
+    st.text_input("Password", type="password", value="test", key="Password")
+    st.text_input("Database", value="chinook", key="Database")
     
     if st.button("Connect"):
         with st.spinner("Connecting to database..."):
@@ -134,6 +135,12 @@ if user_query is not None and user_query.strip() != "":
         
     with st.chat_message("AI"):
         response = get_response(user_query, st.session_state.db, st.session_state.chat_history)
+        # response = "I don't know"
+        #sql_chain = get_sql_chain(st.session_state.db)
+        #response = sql_chain.invoke({
+        #  "chat_history": st.session_state.chat_history,
+        #   "question":user_query
+        #})
         st.markdown(response)
         
     st.session_state.chat_history.append(AIMessage(content=response))
