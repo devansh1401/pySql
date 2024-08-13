@@ -8,8 +8,11 @@ from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from flask import Flask, request, jsonify
 import os
+from flask_cors import CORS
+
 
 def init_database(user: str, password: str, host: str, port: str, database: str) -> SQLDatabase:
+  print(f"Connecting to database {database} on {host}:{port} as {user}")
   db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
   return SQLDatabase.from_uri(db_uri)
 
@@ -87,11 +90,13 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/api/query', methods=['POST'])
 def handle_query():
-    data = request.json
+    data = request.get_json()
     user_query = data.get('query')
+    print("user_query :", user_query)
     
     db = init_database(
       user=os.getenv("SQL_USER"),
@@ -100,6 +105,8 @@ def handle_query():
       port=os.getenv("SQL_PORT"),
       database=os.getenv("SQL_DATABASE")
     )
+
+    print("db :", db)
     
     # Assuming chat_history is managed elsewhere or initialized as needed
     chat_history = []

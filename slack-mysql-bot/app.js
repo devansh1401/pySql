@@ -18,7 +18,7 @@ let slackClient;
 try {
   slackEvents = createEventAdapter(slackSigningSecret, {
     includeBody: true,
-    includeHeaders: true
+    includeHeaders: true,
   });
   slackClient = new WebClient(slackToken);
   console.log("Slack API initialized successfully");
@@ -28,25 +28,32 @@ try {
 
 const rawBodyBuffer = (req, res, buf, encoding) => {
   if (buf && buf.length) {
-    req.rawBody = buf.toString(encoding || 'utf8');
+    req.rawBody = buf.toString(encoding || "utf8");
   }
 };
 
-app.use('/slack/events', express.raw({type: 'application/json', verify: rawBodyBuffer}));
+app.use(
+  "/slack/events",
+  express.raw({ type: "application/json", verify: rawBodyBuffer })
+);
 
-app.use('/slack/events', (req, res, next) => {
-  console.log('Request received at /slack/events');
-  console.log('Headers:', req.headers);
-  console.log('Body:', req.body);
-  next();
-}, slackEvents.expressMiddleware());
+app.use(
+  "/slack/events",
+  (req, res, next) => {
+    console.log("Request received at /slack/events");
+    console.log("Headers:", req.headers);
+    console.log("Body:", req.body);
+    next();
+  },
+  slackEvents.expressMiddleware()
+);
 
-slackEvents.on('error', (error) => {
-  console.error('Slack events error:', error);
+slackEvents.on("error", (error) => {
+  console.error("Slack events error:", error);
 });
 
-slackEvents.on('message', async (event) => {
-  console.log('Message event received:', event);
+slackEvents.on("message", async (event) => {
+  console.log("Message event received:", event);
   try {
     if (!event.bot_id) {
       console.log("Processing message:", event.text);
@@ -66,9 +73,17 @@ slackEvents.on('message', async (event) => {
 
 async function processMessageAndCallAPI(message) {
   try {
-    const response = await axios.post(`${process.env.FLASK_API_URL}`, {
-      message,
-    });
+    const response = await axios.post(
+      `${process.env.FLASK_API_URL}`,
+      JSON.stringify({
+        query: message,
+      }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
     console.log("API response:", response.data);
     return response.data;
   } catch (error) {
@@ -77,22 +92,22 @@ async function processMessageAndCallAPI(message) {
   }
 }
 
-app.post('/slack/events', (req, res) => {
-  if (req.body && req.body.type === 'url_verification') {
-    console.log('Received url_verification request');
+app.post("/slack/events", (req, res) => {
+  if (req.body && req.body.type === "url_verification") {
+    console.log("Received url_verification request");
     return res.json({ challenge: req.body.challenge });
   }
   slackEvents.handle(req, res);
 });
 
-app.get('/test', (req, res) => {
-  console.log('Test endpoint hit');
-  res.send('Server is running');
+app.get("/test", (req, res) => {
+  console.log("Test endpoint hit");
+  res.send("Server is running");
 });
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).send('Something broke!');
+  res.status(500).send("Something broke!");
 });
 
 app.listen(port, () => {
