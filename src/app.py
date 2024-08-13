@@ -6,7 +6,8 @@ from langchain_community.utilities import SQLDatabase
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
-import streamlit as st
+from flask import Flask, request, jsonify
+import os
 
 def init_database(user: str, password: str, host: str, port: str, database: str) -> SQLDatabase:
   db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
@@ -82,58 +83,32 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
     "question": user_query,
     "chat_history": chat_history,
   })
-    
-  
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [
-      AIMessage(content="Hello! I'm a SQL assistant. Ask me anything about your database."),
-    ]
 
 load_dotenv()
 
-st.set_page_config(page_title="Chat with MySQL", page_icon=":speech_balloon:")
+app = Flask(__name__)
 
-st.title("Chat with MySQL")
+@app.route('/api/query', methods=['POST'])
+def handle_query():
+    data = request.json
+    user_query = data.get('query')
+    
+    db = init_database(
+      user=os.getenv("SQL_USER"),
+      password=os.getenv("SQL_PASSWORD"),
+      host=os.getenv("SQL_HOST"),
+      port=os.getenv("SQL_PORT"),
+      database=os.getenv("SQL_DATABASE")
+    )
+    
+    # Assuming chat_history is managed elsewhere or initialized as needed
+    chat_history = []
+    
+    response = get_response(user_query, db, chat_history)
+    print("response :", response)
+    
+    # Return the response as JSON
+    return jsonify({'response': response})
 
-with st.sidebar:
-    st.subheader("Settings")
-    st.write("This is a simple chat application using MySQL. Connect to the database and start chatting.")
-    
-    st.text_input("Host", value="localhost", key="Host")
-    st.text_input("Port", value="3306", key="Port")
-    st.text_input("User", value="root", key="User")
-    st.text_input("Password", type="password", value="admin", key="Password")
-    st.text_input("Database", value="Chinook", key="Database")
-    
-    if st.button("Connect"):
-        with st.spinner("Connecting to database..."):
-            db = init_database(
-                st.session_state["User"],
-                st.session_state["Password"],
-                st.session_state["Host"],
-                st.session_state["Port"],
-                st.session_state["Database"]
-            )
-            st.session_state.db = db
-            st.success("Connected to database!")
-    
-for message in st.session_state.chat_history:
-    if isinstance(message, AIMessage):
-        with st.chat_message("AI"):
-            st.markdown(message.content)
-    elif isinstance(message, HumanMessage):
-        with st.chat_message("Human"):
-            st.markdown(message.content)
-
-user_query = st.chat_input("Type a message...")
-if user_query is not None and user_query.strip() != "":
-    st.session_state.chat_history.append(HumanMessage(content=user_query))
-    
-    with st.chat_message("Human"):
-        st.markdown(user_query)
-        
-    with st.chat_message("AI"):
-        response = get_response(user_query, st.session_state.db, st.session_state.chat_history)
-        st.markdown(response)
-        
-    st.session_state.chat_history.append(AIMessage(content=response))
+if __name__ == '__main__':
+    app.run(debug=True)
