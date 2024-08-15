@@ -6,15 +6,13 @@ from langchain_community.utilities import SQLDatabase
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
-from flask import Flask, request, jsonify
+import streamlit as st
 import os
-from flask_cors import CORS
+from streamlit_chat import message as st_message
 
-
-def init_database(user: str, password: str, host: str, port: str, database: str) -> SQLDatabase:
-  print(f"Connecting to database {database} on {host}:{port} as {user}")
-  db_uri = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
-  return SQLDatabase.from_uri(db_uri)
+def init_database() -> SQLDatabase:
+    db_uri = f"mysql+mysqlconnector://{os.getenv('SQL_USER')}:{os.getenv('SQL_PASSWORD')}@{os.getenv('SQL_HOST')}:{os.getenv('SQL_PORT')}/{os.getenv('SQL_DATABASE')}"
+    return SQLDatabase.from_uri(db_uri)
 
 def get_sql_chain(db):
   template = """
@@ -86,36 +84,60 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
     "question": user_query,
     "chat_history": chat_history,
   })
+    
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = [
+      AIMessage(content="Hello! I'm a SQL assistant. Ask me anything about your database."),
+    ]
 
 load_dotenv()
 
-app = Flask(__name__)
-CORS(app)
+# Initialize database connection
+if "db" not in st.session_state:
+    st.session_state.db = init_database()
 
-@app.route('/api/query', methods=['POST'])
-def handle_query():
-    data = request.get_json()
-    user_query = data.get('query')
-    print("user_query :", user_query)
-    
-    db = init_database(
-      user=os.getenv("SQL_USER"),
-      password=os.getenv("SQL_PASSWORD"),
-      host=os.getenv("SQL_HOST"),
-      port=os.getenv("SQL_PORT"),
-      database=os.getenv("SQL_DATABASE")
-    )
+st.set_page_config(page_title="Chat with MySQL", page_icon=":speech_balloon:")
 
-    print("db :", db)
-    
-    # Assuming chat_history is managed elsewhere or initialized as needed
-    chat_history = []
-    
-    response = get_response(user_query, db, chat_history)
-    print("response :", response)
-    
-    # Return the response as JSON
-    return jsonify({'response': response})
+st.title("PySql")
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# Sidebar with description
+with st.sidebar:
+    st.subheader("About this Bot")
+    st.write("""
+    This is an AI-powered SQL assistant that can help you query and analyze data from a MySQL database. 
+    It uses natural language processing to understand your questions and generate appropriate SQL queries.
+
+    Features:
+    - Translate natural language questions into SQL queries
+    - Provide insights and explanations about the data
+    - Handle follow-up questions and maintain context
+
+    Simply type your question about the database, and the bot will assist you in getting the information you need.
+    """)
+    
+# Display chat messages
+for i, message in enumerate(st.session_state.chat_history):
+    if isinstance(message, AIMessage):
+        st_message(message.content, key=f"ai_{i}")
+    elif isinstance(message, HumanMessage):
+        st_message(message.content, is_user=True, key=f"human_{i}")
+
+# User input
+user_query = st.chat_input("Type a message...")
+
+if user_query is not None and user_query.strip() != "":
+    # Add user message to chat history
+    st.session_state.chat_history.append(HumanMessage(content=user_query))
+    
+    # Display user message
+    st_message(user_query, is_user=True, key=f"human_{len(st.session_state.chat_history)}")
+    
+    # Get AI response
+    with st.spinner("Thinking..."):
+        response = get_response(user_query, st.session_state.db, st.session_state.chat_history)
+    
+    # Display AI response
+    st_message(response, key=f"ai_{len(st.session_state.chat_history) + 1}")
+    
+    # Add AI response to chat history
+    st.session_state.chat_history.append(AIMessage(content=response))
