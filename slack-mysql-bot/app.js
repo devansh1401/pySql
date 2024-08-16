@@ -57,6 +57,7 @@ slackEvents.on("message", async (event) => {
   try {
     if (!event.bot_id) {
       console.log("Processing message:", event.text);
+      
       const response = await processMessageAndCallAPI(event.text);
       console.log("response:", response);
 
